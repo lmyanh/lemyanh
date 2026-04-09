@@ -5,6 +5,9 @@ def validate_answer(answer):
 def validate_exam_request(num_easy, num_medium, num_hard):
     if num_easy < 0 or num_medium < 0 or num_hard < 0:
         return False
+    if (num_easy + num_medium + num_hard) == 0:
+        return False
+
     return True
 
 def validate_question_bank(questions):
@@ -21,7 +24,7 @@ def validate_question_bank(questions):
         if q["answer"] not in ["A", "B", "C", "D"]:
             return False
 
-        return True
+    return True
 
 def filter_questions(questions, subject=None, level=None):
     result = questions
@@ -175,8 +178,63 @@ def process_exam(questions, subject, num_easy, num_medium, num_hard):
     user_answers = take_exam(exam)
     detailed_results = grade_exam(exam, user_answers)
     final_result = calculate_result(detailed_results)
-    final_result["classificaton"] = classify_score(final_result["score_10"])
+    final_result["classification"] = classify_score(final_result["score_10"])
 
     return exam, user_answers, detailed_results, final_result
 
+#TEST CODE
+if __name__ == "__main__":
+    questions = [
+        {
+            "id": 1,
+            "subject": "Python",
+            "level": "De",
+            "question": "Python la ngon ngu gi?",
+            "options": {
+                "A": "Lap trinh",
+                "B": "Co so du lieu",
+                "C": "Mang",
+                "D": "He dieu hanh"
+            },
+            "answer": "A"
+        },
+        {
+            "id": 2,
+            "subject": "Python",
+            "level": "Vua",
+            "question": "Lenh in ra man hinh trong Python la gi?",
+            "options": {
+                "A": "echo()",
+                "B": "print()",
+                "C": "show()",
+                "D": "write()"
+            },
+            "answer": "B"
+        },
+        {
+            "id": 3,
+            "subject": "Python",
+            "level": "Kho",
+            "question": "Kieu du lieu nao dung de luu nhieu gia tri?",
+            "options": {
+                "A": "int",
+                "B": "float",
+                "C": "list",
+                "D": "bool"
+            },
+            "answer": "C"
+        }
+    ]
+
+    print("Kiem tra ngan hang cau hoi:", validate_question_bank(questions))
+
+    exam = generate_exam(questions, "Python", 1, 1, 1)
+    print("\nDe thi duoc tao:")
+    for q in exam:
+        print(q["id"], "-", q["question"])
+
+    exam, user_answers, detailed_results, final_result = process_exam(questions, "Python", 1, 1, 1)
+
+    print("\nKet qua cuoi cung:")
+    print(final_result)
 
