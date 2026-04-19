@@ -1,7 +1,7 @@
 import random
 import difflib
 
-# ================= VALIDATION =================
+# VALIDATION 
 def validate_answer(answer):
     return answer.upper() in ["A", "B", "C", "D"]
 
@@ -35,7 +35,7 @@ def validate_question_bank(questions):
 
     return True
 
-# ================= SEARCH & SORT =================
+#  SEARCH & SORT 
 def search_questions(questions, keyword):
     keyword = keyword.lower()
     return [q for q in questions if keyword in q["question"].lower()]
@@ -54,7 +54,7 @@ def sort_questions(questions, sort_by="id", reverse=False):
         return questions
     return sorted(questions, key=lambda q: q[sort_by], reverse=reverse)
 
-# ================= FILTER =================
+#  FILTER 
 def filter_questions(questions, subject=None, level=None):
     result = questions
     if subject:
@@ -63,7 +63,7 @@ def filter_questions(questions, subject=None, level=None):
         result = [q for q in result if q["level"].lower() == level.lower()]
     return result
 
-# ================= GENERATE EXAM =================
+#  GENERATE EXAM 
 def check_enough_questions(questions, subject, num_easy, num_medium, num_hard):
     if len(filter_questions(questions, subject, "De")) < num_easy:
         return False, "Không đủ câu hỏi dễ"
@@ -90,7 +90,7 @@ def generate_exam(questions, subject, num_easy, num_medium, num_hard):
     random.shuffle(exam)
     return exam
 
-# ================= TAKE EXAM =================
+#  TAKE EXAM 
 def take_exam(exam):
     answers = []
     print("\n=== BẮT ĐẦU THI ===\n")
@@ -115,7 +115,7 @@ def take_exam(exam):
 
     return answers
 
-# ================= GRADING =================
+#  GRADING 
 def grade_exam(exam, user_answers):
     answer_map = {a["id"]: a["answer"] for a in user_answers}
     results = []
@@ -152,11 +152,11 @@ def classify(score):
     if score >= 5: return "Trung bình"
     return "Yếu"
 
-# ================= AUTO ID =================
+#  AUTO ID 
 def generate_id(questions):
     return max(q["id"] for q in questions) + 1 if questions else 1
 
-# ================= MAIN =================
+# MAIN 
 if __name__ == "__main__":
     questions = [
         {"id": 1, "subject": "Python", "level": "De",
