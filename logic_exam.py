@@ -1,4 +1,7 @@
 import random
+import difflib
+
+# ================= VALIDATION =================
 def validate_answer(answer):
     return answer.upper() in ["A", "B", "C", "D"]
 
@@ -7,234 +10,189 @@ def validate_exam_request(num_easy, num_medium, num_hard):
         return False
     if (num_easy + num_medium + num_hard) == 0:
         return False
-
     return True
 
 def validate_question_bank(questions):
     required_keys = ["id", "subject", "level", "question", "options", "answer"]
-    
+
+    ids = []
     for q in questions:
         for key in required_keys:
             if key not in q:
                 return False
 
-        if "A" not in q["options"] or "B" not in q["options"] or "C" not in q["options"] or "D" not in q["options"]:
+        if not all(opt in q["options"] for opt in ["A", "B", "C", "D"]):
             return False
 
         if q["answer"] not in ["A", "B", "C", "D"]:
             return False
 
+        ids.append(q["id"])
+
+    # kiểm tra trùng ID
+    if len(ids) != len(set(ids)):
+        return False
+
     return True
 
-def filter_questions(questions, subject=None, level=None):
-    result = questions
-
-    if subject is not None:
-        result = [q for q in result if q["subject"].lower() == subject.lower()]
-
-    if level is not None:
-        result = [q for q in result if q["level"].lower() == level.lower()]
-
-    return result
-
+# ================= SEARCH & SORT =================
 def search_questions(questions, keyword):
     keyword = keyword.lower()
-    result = [q for q in questions if keyword in q["question"].lower()]
+    return [q for q in questions if keyword in q["question"].lower()]
+
+# tìm gần đúng (fuzzy search)
+def search_questions_fuzzy(questions, keyword):
+    result = []
+    for q in questions:
+        matches = difflib.get_close_matches(keyword.lower(), [q["question"].lower()], n=1, cutoff=0.4)
+        if matches:
+            result.append(q)
     return result
-        
+
 def sort_questions(questions, sort_by="id", reverse=False):
     if sort_by not in ["id", "subject", "level"]:
         return questions
-
     return sorted(questions, key=lambda q: q[sort_by], reverse=reverse)
 
+# ================= FILTER =================
+def filter_questions(questions, subject=None, level=None):
+    result = questions
+    if subject:
+        result = [q for q in result if q["subject"].lower() == subject.lower()]
+    if level:
+        result = [q for q in result if q["level"].lower() == level.lower()]
+    return result
+
+# ================= GENERATE EXAM =================
 def check_enough_questions(questions, subject, num_easy, num_medium, num_hard):
-
-    easy_questions = filter_questions(questions, subject=subject, level="De")
-    medium_questions = filter_questions(questions, subject=subject, level="Vua")
-    hard_questions = filter_questions(questions, subject=subject, level="Kho")
-
-    if len(easy_questions) < num_easy:
-        return False, "Khong du cau hoi muc De."
-    if len(medium_questions) < num_medium:
-        return False, "Khong du cau hoi muc Vua."
-    if len(hard_questions) < num_hard:
-        return False, "Khong du cau hoi muc Kho."
-
-    return True, "Du so luong cau hoi."
+    if len(filter_questions(questions, subject, "De")) < num_easy:
+        return False, "Không đủ câu hỏi dễ"
+    if len(filter_questions(questions, subject, "Vua")) < num_medium:
+        return False, "Không đủ câu hỏi vừa"
+    if len(filter_questions(questions, subject, "Kho")) < num_hard:
+        return False, "Không đủ câu hỏi khó"
+    return True, "OK"
 
 def generate_exam(questions, subject, num_easy, num_medium, num_hard):
     if not validate_exam_request(num_easy, num_medium, num_hard):
-        raise ValueError("So luong cau hoi yeu cau khong hop le.")
+        raise ValueError("Yêu cầu đề không hợp lệ")
 
-    enough, message = check_enough_questions(questions, subject, num_easy, num_medium, num_hard)
+    enough, msg = check_enough_questions(questions, subject, num_easy, num_medium, num_hard)
     if not enough:
-        raise ValueError(message)
+        raise ValueError(msg)
 
-    easy_questions = filter_questions(questions, subject=subject, level="De")
-    medium_questions = filter_questions(questions, subject=subject, level="Vua")
-    hard_questions = filter_questions(questions, subject=subject, level="Kho")
-
-    selected_easy = random.sample(easy_questions, num_easy)
-    selected_medium = random.sample(medium_questions, num_medium)
-    selected_hard = random.sample(hard_questions, num_hard)
-
-    exam = selected_easy + selected_medium + selected_hard
+    exam = (
+        random.sample(filter_questions(questions, subject, "De"), num_easy) +
+        random.sample(filter_questions(questions, subject, "Vua"), num_medium) +
+        random.sample(filter_questions(questions, subject, "Kho"), num_hard)
+    )
 
     random.shuffle(exam)
-
     return exam
 
+# ================= TAKE EXAM =================
 def take_exam(exam):
-    user_answers = []
+    answers = []
+    print("\n=== BẮT ĐẦU THI ===\n")
 
-    print("\nBAT DAU BAI THI \n")
-
-    for i, q in enumerate(exam, start=1):
-        print(f"Cau {i}: {q['question']}")
-        print(f"A. {q['options']['A']}")
-        print(f"B. {q['options']['B']}")
-        print(f"C. {q['options']['C']}")
-        print(f"D. {q['options']['D']}")
+    for i, q in enumerate(exam, 1):
+        print(f"Câu {i}: {q['question']}")
+        for k, v in q["options"].items():
+            print(f"{k}. {v}")
 
         while True:
-            answer = input("Nhap dap an (A/B/C/D): ").strip().upper()
-            if validate_answer(answer):
-                break
-            else:
-                print("Dap an khong hop le. Vui long nhap A, B, C hoac D.")
+            try:
+                ans = input("Đáp án: ").strip().upper()
+                if validate_answer(ans):
+                    break
+                else:
+                    print("Sai định dạng! Nhập A/B/C/D")
+            except Exception:
+                print("Lỗi nhập!")
 
-        user_answers.append({
-            "question_id": q["id"],
-            "user_answer": answer
-        })
+        answers.append({"id": q["id"], "answer": ans})
+        print("-" * 30)
 
-        print("-" * 40)
+    return answers
 
-    print("KET THUC BAI THI\n")
-    return user_answers
-
+# ================= GRADING =================
 def grade_exam(exam, user_answers):
-    answer_map = {}
-    for item in user_answers:
-        answer_map[item["question_id"]] = item["user_answer"]
-
-    detailed_results = []
+    answer_map = {a["id"]: a["answer"] for a in user_answers}
+    results = []
 
     for q in exam:
-        qid = q["id"]
-        correct_answer = q["answer"]
-        user_answer = answer_map.get(qid, "")
-
-        is_correct = (user_answer == correct_answer)
-
-        detailed_results.append({
-            "question_id": qid,
+        correct = q["answer"]
+        user = answer_map.get(q["id"], "")
+        results.append({
             "question": q["question"],
-            "correct_answer": correct_answer,
-            "user_answer": user_answer,
-            "is_correct": is_correct
+            "correct": correct,
+            "user": user,
+            "is_correct": correct == user
         })
 
-    return detailed_results
+    return results
 
-def calculate_result(detailed_results):
-    total = len(detailed_results)
-    correct = sum(1 for item in detailed_results if item["is_correct"])
-    wrong = total - correct
+def calculate_result(results):
+    total = len(results)
+    correct = sum(r["is_correct"] for r in results)
 
-    if total == 0:
-        score_10 = 0
-        correct_percent = 0
-        wrong_percent = 0
-    else:
-        score_10 = round((correct / total) * 10, 2)
-        correct_percent = round((correct / total) * 100, 2)
-        wrong_percent = round((wrong / total) * 100, 2)
+    score = round((correct / total) * 10, 2) if total else 0
+    percent = round((correct / total) * 100, 2) if total else 0
 
-    result = {
-        "total_questions": total,
-        "correct_answers": correct,
-        "wrong_answers": wrong,
-        "score_10": score_10,
-        "correct_percent": correct_percent,
-        "wrong_percent": wrong_percent
+    return {
+        "total": total,
+        "correct": correct,
+        "score": score,
+        "percent": percent
     }
 
-    return result
+def classify(score):
+    if score >= 8: return "Giỏi"
+    if score >= 6.5: return "Khá"
+    if score >= 5: return "Trung bình"
+    return "Yếu"
 
-def classify_score(score_10):
-    if score_10 >= 8:
-        return "Gioi"
-    elif score_10 >= 6.5:
-        return "Kha"
-    elif score_10 >= 5:
-        return "Trung binh"
-    else:
-        return "Yeu"
+# ================= AUTO ID =================
+def generate_id(questions):
+    return max(q["id"] for q in questions) + 1 if questions else 1
 
-def process_exam(questions, subject, num_easy, num_medium, num_hard):
-    exam = generate_exam(questions, subject, num_easy, num_medium, num_hard)
-    user_answers = take_exam(exam)
-    detailed_results = grade_exam(exam, user_answers)
-    final_result = calculate_result(detailed_results)
-    final_result["classification"] = classify_score(final_result["score_10"])
-
-    return exam, user_answers, detailed_results, final_result
-
-#TEST CODE
+# ================= MAIN =================
 if __name__ == "__main__":
     questions = [
-        {
-            "id": 1,
-            "subject": "Python",
-            "level": "De",
-            "question": "Python la ngon ngu gi?",
-            "options": {
-                "A": "Lap trinh",
-                "B": "Co so du lieu",
-                "C": "Mang",
-                "D": "He dieu hanh"
-            },
-            "answer": "A"
-        },
-        {
-            "id": 2,
-            "subject": "Python",
-            "level": "Vua",
-            "question": "Lenh in ra man hinh trong Python la gi?",
-            "options": {
-                "A": "echo()",
-                "B": "print()",
-                "C": "show()",
-                "D": "write()"
-            },
-            "answer": "B"
-        },
-        {
-            "id": 3,
-            "subject": "Python",
-            "level": "Kho",
-            "question": "Kieu du lieu nao dung de luu nhieu gia tri?",
-            "options": {
-                "A": "int",
-                "B": "float",
-                "C": "list",
-                "D": "bool"
-            },
-            "answer": "C"
-        }
+        {"id": 1, "subject": "Python", "level": "De",
+         "question": "Python là gì?",
+         "options": {"A": "Ngôn ngữ lập trình", "B": "CSDL", "C": "Mạng", "D": "OS"},
+         "answer": "A"},
+
+        {"id": 2, "subject": "Python", "level": "Vua",
+         "question": "Lệnh in?",
+         "options": {"A": "echo()", "B": "print()", "C": "show()", "D": "write()"},
+         "answer": "B"},
+
+        {"id": 3, "subject": "Python", "level": "Kho",
+         "question": "Kiểu lưu nhiều giá trị?",
+         "options": {"A": "int", "B": "float", "C": "list", "D": "bool"},
+         "answer": "C"},
     ]
 
-    print("Kiem tra ngan hang cau hoi:", validate_question_bank(questions))
+    # validate
+    if not validate_question_bank(questions):
+        print("Ngân hàng câu hỏi lỗi!")
+        exit()
 
-    exam = generate_exam(questions, "Python", 1, 1, 1)
-    print("\nDe thi duoc tao:")
-    for q in exam:
-        print(q["id"], "-", q["question"])
+    # test search gần đúng
+    print("\nTìm gần đúng 'pythn':")
+    print(search_questions_fuzzy(questions, "pythn"))
 
-    exam, user_answers, detailed_results, final_result = process_exam(questions, "Python", 1, 1, 1)
+    try:
+        exam = generate_exam(questions, "Python", 1, 1, 1)
+        answers = take_exam(exam)
+        results = grade_exam(exam, answers)
+        final = calculate_result(results)
+        final["classification"] = classify(final["score"])
 
-    print("\nKet qua cuoi cung:")
-    print(final_result)
+        print("\n=== KẾT QUẢ ===")
+        print(final)
 
+    except Exception as e:
+        print("Lỗi:", e)
