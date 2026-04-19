@@ -191,7 +191,7 @@ if __name__ == "__main__":
         final = calculate_result(results)
         final["classification"] = classify(final["score"])
 
-        print("\n=== KẾT QUẢ ===")
+        print("\nKẾT QUẢ")
         print(final)
 
     except Exception as e:
